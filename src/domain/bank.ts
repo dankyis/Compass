@@ -76,8 +76,14 @@ export function questionsFor(
   bank: Question[],
   exam: ExamTrack,
   subject: SubjectId,
+  topic?: string,
 ): Question[] {
-  return bank.filter((q) => q.exam === exam && q.subject === subject);
+  return bank.filter(
+    (q) =>
+      q.exam === exam &&
+      q.subject === subject &&
+      (topic === undefined || q.topic === topic),
+  );
 }
 
 export function topicsFor(

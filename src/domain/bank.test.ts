@@ -71,3 +71,47 @@ describe("bank queries", () => {
     expect(topicsFor(bank, "WASSCE", "mathematics")).toEqual(["Algebraic Expressions"]);
   });
 });
+
+describe("topic filtering", () => {
+  const mixed: SeedTopic[] = [
+    {
+      exam: "WASSCE",
+      subject: "mathematics",
+      topic: "Fractions",
+      questions: [
+        { prompt: "F1", options: ["1", "2", "3", "4"], correct: "A", source: "S1" },
+        { prompt: "F2", options: ["1", "2", "3", "4"], correct: "B", source: "S2" },
+      ],
+    },
+    {
+      exam: "WASSCE",
+      subject: "mathematics",
+      topic: "Addition",
+      questions: [
+        { prompt: "A1", options: ["1", "2", "3", "4"], correct: "C", source: "S3" },
+      ],
+    },
+  ];
+  const mixedBank = buildBank(mixed);
+
+  it("draws only from the chosen topic", () => {
+    const set = questionsFor(mixedBank, "WASSCE", "mathematics", "Fractions");
+    expect(set).toHaveLength(2);
+    expect(set.every((q) => q.topic === "Fractions")).toBe(true);
+  });
+
+  it("returns the whole subject when the filter is cleared", () => {
+    expect(questionsFor(mixedBank, "WASSCE", "mathematics")).toHaveLength(3);
+  });
+
+  it("returns nothing for a topic with no questions", () => {
+    expect(questionsFor(mixedBank, "WASSCE", "mathematics", "Geometry")).toEqual([]);
+  });
+
+  it("lists every topic within the subject", () => {
+    expect(topicsFor(mixedBank, "WASSCE", "mathematics")).toEqual([
+      "Fractions",
+      "Addition",
+    ]);
+  });
+});
