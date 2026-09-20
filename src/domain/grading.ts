@@ -1,5 +1,6 @@
 // Grading seam.
-// The single place that decides whether a chosen option is correct.
+// The single place that decides whether a chosen option is correct, how a set
+// is summarised, and which questions were missed.
 
 import { OptionKey, Question } from "./question";
 
@@ -25,4 +26,15 @@ export function summarise(
     return choice !== undefined && isCorrect(q, choice);
   }).length;
   return { total: questions.length, correct };
+}
+
+/** The questions a student answered wrongly or left unanswered. */
+export function missedQuestions(
+  questions: Question[],
+  answers: Record<string, OptionKey>,
+): Question[] {
+  return questions.filter((q) => {
+    const choice = answers[q.id];
+    return choice === undefined || !isCorrect(q, choice);
+  });
 }

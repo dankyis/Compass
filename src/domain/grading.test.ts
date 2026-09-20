@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isCorrect, summarise } from "./grading";
+import { isCorrect, summarise, missedQuestions } from "./grading";
 import { Question } from "./question";
 
 const questions: Question[] = [
@@ -26,5 +26,21 @@ describe("summarise", () => {
 
   it("counts wrong answers as incorrect", () => {
     expect(summarise(questions, { q1: "D", q2: "B", q3: "A" })).toEqual({ total: 3, correct: 1 });
+  });
+});
+
+describe("missedQuestions", () => {
+  it("returns nothing when everything is correct", () => {
+    expect(missedQuestions(questions, { q1: "A", q2: "B", q3: "C" })).toEqual([]);
+  });
+
+  it("returns wrongly answered questions", () => {
+    const missed = missedQuestions(questions, { q1: "A", q2: "C", q3: "C" });
+    expect(missed.map((q) => q.id)).toEqual(["q2"]);
+  });
+
+  it("returns unanswered questions too", () => {
+    const missed = missedQuestions(questions, { q1: "A" });
+    expect(missed.map((q) => q.id)).toEqual(["q2", "q3"]);
   });
 });
