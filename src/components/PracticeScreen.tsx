@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Question, OptionKey, OPTION_KEYS } from "@/domain/question";
 import { assemblePracticeSet } from "@/domain/practiceSet";
-import { isCorrect, summarise, missedQuestions } from "@/domain/grading";
-import { subjectLabel } from "@/domain/subject";
+import { SetResult, isCorrect, summarise, missedQuestions } from "@/domain/grading";
+import { SubjectId, subjectLabel } from "@/domain/subject";
 import {
   formatDuration,
   isExpired,
@@ -15,12 +15,14 @@ import {
 interface PracticeScreenProps {
   pool: Question[];
   onExit: () => void;
+  /** Called once when a set finishes, so the caller can record progress. */
+  onSetComplete?: (subject: SubjectId, result: SetResult) => void;
 }
 
 // The Practice Loop's core: answer one question at a time, see instantly
 // whether you were right, then get a score and a review of what you missed.
 // Practice is untimed unless the student turns on Exam Mode.
-export function PracticeScreen({ pool, onExit }: PracticeScreenProps) {
+export function PracticeScreen({ pool, onExit, onSetComplete }: PracticeScreenProps) {
   const [questions, setQuestions] = useState<Question[]>(() =>
     assemblePracticeSet(pool),
   );
@@ -34,6 +36,9 @@ export function PracticeScreen({ pool, onExit }: PracticeScreenProps) {
   const [deadline, setDeadline] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [timedOut, setTimedOut] = useState(false);
+
+  // Guards progress recording so one set is only ever counted once.
+  const recorded = useRef(false);
 
   const question = questions[index];
   const answered = choice !== null;
@@ -57,10 +62,20 @@ export function PracticeScreen({ pool, onExit }: PracticeScreenProps) {
   // Reaching the limit ends the set and shows the score.
   useEffect(() => {
     if (deadline !== null && !finished && isExpired(deadline, now)) {
-      setTimedOut(true);
-      setFinished(true);
+      finishSet(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deadline, now, finished]);
+
+  function finishSet(timedOutNow: boolean) {
+    if (recorded.current) return;
+    recorded.current = true;
+    setTimedOut(timedOutNow);
+    setFinished(true);
+    if (questions.length > 0) {
+      onSetComplete?.(questions[0].subject, summarise(questions, answers));
+    }
+  }
 
   function setTimer(on: boolean) {
     setExamMode(on);
@@ -80,6 +95,7 @@ export function PracticeScreen({ pool, onExit }: PracticeScreenProps) {
     setAnswers({});
     setFinished(false);
     setTimedOut(false);
+    recorded.current = false;
     if (examMode) {
       const started = Date.now();
       setNow(started);
@@ -235,7 +251,7 @@ export function PracticeScreen({ pool, onExit }: PracticeScreenProps) {
             <button
               type="button"
               className="subject-option"
-              onClick={() => setFinished(true)}
+              onClick={() => finishSet(false)}
             >
               See results
             </button>

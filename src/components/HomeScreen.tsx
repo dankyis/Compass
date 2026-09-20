@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DEFAULT_EXAM_TRACK, ExamTrack } from "@/domain/exam";
 import { SubjectId } from "@/domain/subject";
 import { Question } from "@/domain/question";
+import { SetResult } from "@/domain/grading";
 import {
   QUESTION_BANK,
   listSubjects,
@@ -12,27 +13,37 @@ import {
 } from "@/domain/bank";
 import { resolveBank } from "@/domain/bankCache";
 import { createBrowserBankStore } from "@/lib/browserBankStore";
-import { loadExamTrack, saveExamTrack } from "@/domain/storage";
+import {
+  loadExamTrack,
+  loadProgress,
+  saveExamTrack,
+  saveProgress,
+} from "@/domain/storage";
+import { EMPTY_PROGRESS, Progress, recordSet, toDayKey } from "@/domain/progress";
 import { ExamToggle } from "./ExamToggle";
 import { SubjectPicker } from "./SubjectPicker";
 import { TopicPicker } from "./TopicPicker";
 import { PracticeScreen } from "./PracticeScreen";
+import { ProgressSummary } from "./ProgressSummary";
 
 type Stage = "choose" | "topic" | "practice";
 
-// Owns the Exam Track, the chosen Subject and the optional Topic filter for the
-// home screen, and moves the student between choosing and practising.
+// Owns the Exam Track, the chosen Subject, the optional Topic filter and the
+// on-device Progress for the home screen, and moves the student between
+// choosing and practising.
 export function HomeScreen() {
   const [track, setTrack] = useState<ExamTrack>(DEFAULT_EXAM_TRACK);
   const [subject, setSubject] = useState<SubjectId | null>(null);
   const [topic, setTopic] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>("choose");
   const [pool, setPool] = useState<Question[]>([]);
+  const [progress, setProgress] = useState<Progress>(EMPTY_PROGRESS);
 
   const store = useMemo(() => createBrowserBankStore(), []);
 
   useEffect(() => {
     setTrack(loadExamTrack(window.localStorage));
+    setProgress(loadProgress(window.localStorage));
   }, []);
 
   const subjects = useMemo(() => listSubjects(QUESTION_BANK, track), [track]);
@@ -54,6 +65,17 @@ export function HomeScreen() {
       });
     }
   }, [store, track, subjects]);
+
+  const recordCompletedSet = useCallback(
+    (doneSubject: SubjectId, result: SetResult) => {
+      setProgress((previous) => {
+        const next = recordSet(previous, doneSubject, result, toDayKey(new Date()));
+        saveProgress(window.localStorage, next);
+        return next;
+      });
+    },
+    [],
+  );
 
   function selectTrack(next: ExamTrack) {
     setTrack(next);
@@ -93,7 +115,13 @@ export function HomeScreen() {
   }
 
   if (stage === "practice") {
-    return <PracticeScreen pool={pool} onExit={exitPractice} />;
+    return (
+      <PracticeScreen
+        pool={pool}
+        onExit={exitPractice}
+        onSetComplete={recordCompletedSet}
+      />
+    );
   }
 
   if (stage === "topic" && subject) {
@@ -114,6 +142,7 @@ export function HomeScreen() {
     <>
       <ExamToggle track={track} onSelect={selectTrack} />
       <SubjectPicker track={track} subjects={subjects} onSelect={chooseSubject} />
+      <ProgressSummary progress={progress} />
     </>
   );
 }
