@@ -95,3 +95,45 @@ body {
 .selected strong {
   color: var(--ink);
 }
+
+.subjects {
+  margin-top: 2rem;
+}
+
+.subjects h2 {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+  margin-bottom: 0.75rem;
+}
+
+.subject-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.subject-option {
+  width: 100%;
+  text-align: left;
+  padding: 1rem 1.25rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  cursor: pointer;
+}
+
+.subject-option:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.empty {
+  opacity: 0.7;
+  font-style: italic;
+}

@@ -1,4 +1,4 @@
-import { ExamToggle } from "@/components/ExamToggle";
+import { HomeScreen } from "@/components/HomeScreen";
 
 export default function Home() {
   return (
@@ -9,7 +9,7 @@ export default function Home() {
           Practise WAEC past questions — BECE and WASSCE, with instant feedback.
         </p>
       </header>
-      <ExamToggle />
+      <HomeScreen />
     </main>
   );
 }

@@ -1,27 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  EXAM_TRACKS,
-  ExamTrack,
-  DEFAULT_EXAM_TRACK,
-  examTrackLabel,
-} from "@/domain/exam";
-import { loadExamTrack, saveExamTrack } from "@/domain/storage";
+import { EXAM_TRACKS, ExamTrack, examTrackLabel } from "@/domain/exam";
 
-export function ExamToggle() {
-  const [track, setTrack] = useState<ExamTrack>(DEFAULT_EXAM_TRACK);
+interface ExamToggleProps {
+  track: ExamTrack;
+  onSelect: (track: ExamTrack) => void;
+}
 
-  // Read the saved track on mount so the choice survives reloads.
-  useEffect(() => {
-    setTrack(loadExamTrack(window.localStorage));
-  }, []);
-
-  function select(next: ExamTrack) {
-    setTrack(next);
-    saveExamTrack(window.localStorage, next);
-  }
-
+// Presentational Exam Toggle. The selected track is owned by the caller so
+// other parts of the screen (the subject picker) can react to it.
+export function ExamToggle({ track, onSelect }: ExamToggleProps) {
   return (
     <section className="toggle-section" aria-label="Choose your exam">
       <div className="toggle" role="radiogroup" aria-label="Exam track">
@@ -34,7 +22,7 @@ export function ExamToggle() {
             className={
               track === candidate ? "toggle-option active" : "toggle-option"
             }
-            onClick={() => select(candidate)}
+            onClick={() => onSelect(candidate)}
           >
             {examTrackLabel(candidate)}
           </button>
