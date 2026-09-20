@@ -7,8 +7,11 @@ import { SubjectId } from "./subject";
 import { OPTION_KEYS, Question } from "./question";
 import { SeedTopic } from "./seed";
 import { algebraicExpressions } from "@/data/seed/algebraic-expressions";
+import { changeOfSubject } from "@/data/seed/change-of-subject";
+import { cellAndCellDivision } from "@/data/seed/cell-and-cell-division";
+import { ecosystem } from "@/data/seed/ecosystem";
 
-const SEED_TOPICS: SeedTopic[] = [algebraicExpressions];
+const SEED_TOPICS: SeedTopic[] = [algebraicExpressions, changeOfSubject, cellAndCellDivision, ecosystem];
 
 function slug(value: string): string {
   return value
