@@ -1,7 +1,11 @@
 research/
 node_modules/
+.next/
+out/
 .venv/
 venv/
 __pycache__/
 *.pyc
 .DS_Store
+tsconfig.tsbuildinfo
+next-env.d.ts
