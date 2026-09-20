@@ -1,10 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { EMPTY_PROGRESS, recordSet } from "./progress";
+import { EMPTY_ALLOWANCE, recordAnswered } from "./allowance";
 import {
+  ALLOWANCE_STORAGE_KEY,
   EXAM_TRACK_STORAGE_KEY,
   PROGRESS_STORAGE_KEY,
+  loadAllowance,
   loadExamTrack,
   loadProgress,
+  saveAllowance,
   saveExamTrack,
   saveProgress,
 } from "./storage";
@@ -69,5 +73,31 @@ describe("progress persistence", () => {
       lastDay: null,
       accuracy: {},
     });
+  });
+});
+
+describe("free allowance persistence", () => {
+  it("returns an empty allowance when nothing is stored", () => {
+    expect(loadAllowance(fakeStore())).toEqual(EMPTY_ALLOWANCE);
+  });
+
+  it("round-trips a saved allowance", () => {
+    const store = fakeStore();
+    const saved = recordAnswered(EMPTY_ALLOWANCE, "mathematics", 6);
+    saveAllowance(store, saved);
+    expect(store._dump()[ALLOWANCE_STORAGE_KEY]).toBeTruthy();
+    expect(loadAllowance(store)).toEqual(saved);
+  });
+
+  it("survives corrupted stored JSON", () => {
+    const store = fakeStore({ [ALLOWANCE_STORAGE_KEY]: "{not json" });
+    expect(loadAllowance(store)).toEqual(EMPTY_ALLOWANCE);
+  });
+
+  it("drops unknown subjects from stored data", () => {
+    const store = fakeStore({
+      [ALLOWANCE_STORAGE_KEY]: JSON.stringify({ mathematics: 2, astronomy: 9 }),
+    });
+    expect(loadAllowance(store)).toEqual({ mathematics: 2 });
   });
 });

@@ -14,23 +14,34 @@ import {
 import { resolveBank } from "@/domain/bankCache";
 import { createBrowserBankStore } from "@/lib/browserBankStore";
 import {
+  loadAllowance,
   loadExamTrack,
   loadProgress,
+  saveAllowance,
   saveExamTrack,
   saveProgress,
 } from "@/domain/storage";
 import { EMPTY_PROGRESS, Progress, recordSet, toDayKey } from "@/domain/progress";
+import {
+  Allowance,
+  EMPTY_ALLOWANCE,
+  FREE_ALLOWANCE,
+  isExhausted,
+  recordAnswered,
+  remaining,
+} from "@/domain/allowance";
 import { ExamToggle } from "./ExamToggle";
 import { SubjectPicker } from "./SubjectPicker";
 import { TopicPicker } from "./TopicPicker";
 import { PracticeScreen } from "./PracticeScreen";
 import { ProgressSummary } from "./ProgressSummary";
+import { SignInWall } from "./SignInWall";
 
-type Stage = "choose" | "topic" | "practice";
+type Stage = "choose" | "topic" | "practice" | "wall";
 
-// Owns the Exam Track, the chosen Subject, the optional Topic filter and the
-// on-device Progress for the home screen, and moves the student between
-// choosing and practising.
+// Owns the Exam Track, the chosen Subject, the optional Topic filter, the
+// on-device Progress and the Free Allowance for the home screen, and moves the
+// student between choosing, practising, and the Sign-in Wall.
 export function HomeScreen() {
   const [track, setTrack] = useState<ExamTrack>(DEFAULT_EXAM_TRACK);
   const [subject, setSubject] = useState<SubjectId | null>(null);
@@ -38,12 +49,14 @@ export function HomeScreen() {
   const [stage, setStage] = useState<Stage>("choose");
   const [pool, setPool] = useState<Question[]>([]);
   const [progress, setProgress] = useState<Progress>(EMPTY_PROGRESS);
+  const [allowance, setAllowance] = useState<Allowance>(EMPTY_ALLOWANCE);
 
   const store = useMemo(() => createBrowserBankStore(), []);
 
   useEffect(() => {
     setTrack(loadExamTrack(window.localStorage));
     setProgress(loadProgress(window.localStorage));
+    setAllowance(loadAllowance(window.localStorage));
   }, []);
 
   const subjects = useMemo(() => listSubjects(QUESTION_BANK, track), [track]);
@@ -77,6 +90,14 @@ export function HomeScreen() {
     [],
   );
 
+  const recordAnsweredQuestion = useCallback((answeredSubject: SubjectId) => {
+    setAllowance((previous) => {
+      const next = recordAnswered(previous, answeredSubject, 1);
+      saveAllowance(window.localStorage, next);
+      return next;
+    });
+  }, []);
+
   function selectTrack(next: ExamTrack) {
     setTrack(next);
     setSubject(null);
@@ -88,7 +109,7 @@ export function HomeScreen() {
   function chooseSubject(next: SubjectId) {
     setSubject(next);
     setTopic(null);
-    setStage("topic");
+    setStage(isExhausted(allowance, next) ? "wall" : "topic");
   }
 
   async function startPractice(nextTopic: string | null) {
@@ -114,13 +135,24 @@ export function HomeScreen() {
     setStage("topic");
   }
 
-  if (stage === "practice") {
+  if (stage === "practice" && subject) {
     return (
       <PracticeScreen
         pool={pool}
         onExit={exitPractice}
         onSetComplete={recordCompletedSet}
+        onAnswered={recordAnsweredQuestion}
+        allowanceRemaining={remaining(allowance, subject)}
       />
+    );
+  }
+
+  if (stage === "wall" && subject) {
+    return (
+      <>
+        <ExamToggle track={track} onSelect={selectTrack} />
+        <SignInWall subject={subject} onBack={backToSubjects} />
+      </>
     );
   }
 

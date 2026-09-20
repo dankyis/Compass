@@ -11,18 +11,29 @@ import {
   remainingSeconds,
   timeLimitMillis,
 } from "@/domain/examMode";
+import { SignInWall } from "./SignInWall";
 
 interface PracticeScreenProps {
   pool: Question[];
   onExit: () => void;
   /** Called once when a set finishes, so the caller can record progress. */
   onSetComplete?: (subject: SubjectId, result: SetResult) => void;
+  /** Called after each answered question, so the caller can count allowance. */
+  onAnswered?: (subject: SubjectId) => void;
+  /** Free Questions left for this subject; the Sign-in Wall shows at zero. */
+  allowanceRemaining?: number;
 }
 
 // The Practice Loop's core: answer one question at a time, see instantly
 // whether you were right, then get a score and a review of what you missed.
 // Practice is untimed unless the student turns on Exam Mode.
-export function PracticeScreen({ pool, onExit, onSetComplete }: PracticeScreenProps) {
+export function PracticeScreen({
+  pool,
+  onExit,
+  onSetComplete,
+  onAnswered,
+  allowanceRemaining,
+}: PracticeScreenProps) {
   const [questions, setQuestions] = useState<Question[]>(() =>
     assemblePracticeSet(pool),
   );
@@ -42,6 +53,7 @@ export function PracticeScreen({ pool, onExit, onSetComplete }: PracticeScreenPr
 
   const question = questions[index];
   const answered = choice !== null;
+  const blocked = allowanceRemaining !== undefined && allowanceRemaining <= 0;
   const wasCorrect = useMemo(
     () => (question && choice ? isCorrect(question, choice) : false),
     [question, choice],
@@ -107,6 +119,7 @@ export function PracticeScreen({ pool, onExit, onSetComplete }: PracticeScreenPr
     if (!question) return;
     setChoice(key);
     setAnswers((prev) => ({ ...prev, [question.id]: key }));
+    onAnswered?.(question.subject);
   }
 
   function advance() {
@@ -153,32 +166,46 @@ export function PracticeScreen({ pool, onExit, onSetComplete }: PracticeScreenPr
           <p className="feedback-verdict">Perfect set — nothing missed.</p>
         )}
 
-        <div className="result-actions">
-          {missed.length > 0 && (
+        {blocked ? (
+          <SignInWall subject={questions[0].subject} onBack={onExit} />
+        ) : (
+          <div className="result-actions">
+            {missed.length > 0 && (
+              <button
+                type="button"
+                className="subject-option"
+                onClick={() => startRun(missed)}
+              >
+                Retry missed ({missed.length})
+              </button>
+            )}
             <button
               type="button"
               className="subject-option"
-              onClick={() => startRun(missed)}
+              onClick={() => startRun(assemblePracticeSet(pool))}
             >
-              Retry missed ({missed.length})
+              Next set
             </button>
-          )}
-          <button
-            type="button"
-            className="subject-option"
-            onClick={() => startRun(assemblePracticeSet(pool))}
-          >
-            Next set
-          </button>
-          <button type="button" className="practice-exit" onClick={onExit}>
-            Exit practice
-          </button>
-        </div>
+            <button type="button" className="practice-exit" onClick={onExit}>
+              Exit practice
+            </button>
+          </div>
+        )}
       </section>
     );
   }
 
   if (!question) return null;
+
+  // The wall stands in for a question the student may no longer answer free.
+  if (blocked && !answered) {
+    return (
+      <section className="practice" aria-label="Practice set">
+        <SignInWall subject={question.subject} onBack={onExit} />
+      </section>
+    );
+  }
+
   const isLast = index === questions.length - 1;
 
   return (
