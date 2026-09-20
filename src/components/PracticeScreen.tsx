@@ -1,10 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Question, OptionKey, OPTION_KEYS } from "@/domain/question";
 import { assemblePracticeSet } from "@/domain/practiceSet";
 import { isCorrect, summarise, missedQuestions } from "@/domain/grading";
 import { subjectLabel } from "@/domain/subject";
+import {
+  formatDuration,
+  isExpired,
+  remainingSeconds,
+  timeLimitMillis,
+} from "@/domain/examMode";
 
 interface PracticeScreenProps {
   pool: Question[];
@@ -13,6 +19,7 @@ interface PracticeScreenProps {
 
 // The Practice Loop's core: answer one question at a time, see instantly
 // whether you were right, then get a score and a review of what you missed.
+// Practice is untimed unless the student turns on Exam Mode.
 export function PracticeScreen({ pool, onExit }: PracticeScreenProps) {
   const [questions, setQuestions] = useState<Question[]>(() =>
     assemblePracticeSet(pool),
@@ -21,6 +28,12 @@ export function PracticeScreen({ pool, onExit }: PracticeScreenProps) {
   const [choice, setChoice] = useState<OptionKey | null>(null);
   const [answers, setAnswers] = useState<Record<string, OptionKey>>({});
   const [finished, setFinished] = useState(false);
+
+  // Exam Mode: off by default; when on, a deadline ends the set on time.
+  const [examMode, setExamMode] = useState(false);
+  const [deadline, setDeadline] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [timedOut, setTimedOut] = useState(false);
 
   const question = questions[index];
   const answered = choice !== null;
@@ -32,12 +45,46 @@ export function PracticeScreen({ pool, onExit }: PracticeScreenProps) {
   const result = useMemo(() => summarise(questions, answers), [questions, answers]);
   const missed = useMemo(() => missedQuestions(questions, answers), [questions, answers]);
 
+  const remaining = deadline === null ? null : remainingSeconds(deadline, now);
+
+  // Tick the countdown while a deadline is set.
+  useEffect(() => {
+    if (deadline === null || finished) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [deadline, finished]);
+
+  // Reaching the limit ends the set and shows the score.
+  useEffect(() => {
+    if (deadline !== null && !finished && isExpired(deadline, now)) {
+      setTimedOut(true);
+      setFinished(true);
+    }
+  }, [deadline, now, finished]);
+
+  function setTimer(on: boolean) {
+    setExamMode(on);
+    if (on) {
+      const started = Date.now();
+      setNow(started);
+      setDeadline(started + timeLimitMillis(questions.length));
+    } else {
+      setDeadline(null);
+    }
+  }
+
   function startRun(next: Question[]) {
     setQuestions(next);
     setIndex(0);
     setChoice(null);
     setAnswers({});
     setFinished(false);
+    setTimedOut(false);
+    if (examMode) {
+      const started = Date.now();
+      setNow(started);
+      setDeadline(started + timeLimitMillis(next.length));
+    }
   }
 
   function choose(key: OptionKey) {
@@ -66,7 +113,8 @@ export function PracticeScreen({ pool, onExit }: PracticeScreenProps) {
     return (
       <section className="practice" aria-label="Practice results">
         <h2 className="practice-prompt">
-          You scored {result.correct} out of {result.total}
+          {timedOut ? "Time's up — " : ""}You scored {result.correct} out of{" "}
+          {result.total}
         </h2>
 
         {missed.length > 0 ? (
@@ -124,6 +172,22 @@ export function PracticeScreen({ pool, onExit }: PracticeScreenProps) {
           Question {index + 1} of {questions.length}
         </span>
         <span className="practice-subject">{subjectLabel(question.subject)}</span>
+      </div>
+
+      <div className="exam-mode">
+        <button
+          type="button"
+          className={`exam-mode-toggle${examMode ? " active" : ""}`}
+          aria-pressed={examMode}
+          onClick={() => setTimer(!examMode)}
+        >
+          {examMode ? "Exam Mode on" : "Exam Mode off"}
+        </button>
+        {remaining !== null && (
+          <span className="exam-timer" aria-live="off">
+            Time left {formatDuration(remaining)}
+          </span>
+        )}
       </div>
 
       <p className="practice-source">{question.source}</p>
