@@ -70,6 +70,12 @@ export function HomeScreen() {
     setSession(loadSession(window.localStorage));
   }, []);
 
+  // The theme follows the Exam Toggle: BECE (JHS) is light, WASSCE (SHS) is dark.
+  // This attribute is the only theme hook; every colour resolves from it in CSS.
+  useEffect(() => {
+    document.documentElement.dataset.track = track;
+  }, [track]);
+
   const subjects = useMemo(() => listSubjects(QUESTION_BANK, track), [track]);
   const topics = useMemo(
     () => (subject ? topicsFor(QUESTION_BANK, track, subject) : []),
