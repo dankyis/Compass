@@ -14,34 +14,42 @@ import {
 import { resolveBank } from "@/domain/bankCache";
 import { createBrowserBankStore } from "@/lib/browserBankStore";
 import {
+  clearSession,
+  loadAccountProgress,
   loadAllowance,
   loadExamTrack,
   loadProgress,
+  loadSession,
+  saveAccountProgress,
   saveAllowance,
   saveExamTrack,
   saveProgress,
+  saveSession,
 } from "@/domain/storage";
 import { EMPTY_PROGRESS, Progress, recordSet, toDayKey } from "@/domain/progress";
 import {
   Allowance,
   EMPTY_ALLOWANCE,
-  FREE_ALLOWANCE,
   isExhausted,
   recordAnswered,
   remaining,
 } from "@/domain/allowance";
+import { Session, createDevPhoneAuth } from "@/domain/auth";
+import { mergeProgress } from "@/domain/merge";
 import { ExamToggle } from "./ExamToggle";
 import { SubjectPicker } from "./SubjectPicker";
 import { TopicPicker } from "./TopicPicker";
 import { PracticeScreen } from "./PracticeScreen";
 import { ProgressSummary } from "./ProgressSummary";
 import { SignInWall } from "./SignInWall";
+import { SignIn } from "./SignIn";
 
-type Stage = "choose" | "topic" | "practice" | "wall";
+type Stage = "choose" | "topic" | "practice" | "wall" | "signin";
 
 // Owns the Exam Track, the chosen Subject, the optional Topic filter, the
-// on-device Progress and the Free Allowance for the home screen, and moves the
-// student between choosing, practising, and the Sign-in Wall.
+// on-device Progress, the Free Allowance and the signed-in Session for the home
+// screen, and moves the student between choosing, practising, the Sign-in Wall,
+// and signing in.
 export function HomeScreen() {
   const [track, setTrack] = useState<ExamTrack>(DEFAULT_EXAM_TRACK);
   const [subject, setSubject] = useState<SubjectId | null>(null);
@@ -50,13 +58,16 @@ export function HomeScreen() {
   const [pool, setPool] = useState<Question[]>([]);
   const [progress, setProgress] = useState<Progress>(EMPTY_PROGRESS);
   const [allowance, setAllowance] = useState<Allowance>(EMPTY_ALLOWANCE);
+  const [session, setSession] = useState<Session | null>(null);
 
   const store = useMemo(() => createBrowserBankStore(), []);
+  const auth = useMemo(() => createDevPhoneAuth(), []);
 
   useEffect(() => {
     setTrack(loadExamTrack(window.localStorage));
     setProgress(loadProgress(window.localStorage));
     setAllowance(loadAllowance(window.localStorage));
+    setSession(loadSession(window.localStorage));
   }, []);
 
   const subjects = useMemo(() => listSubjects(QUESTION_BANK, track), [track]);
@@ -97,6 +108,26 @@ export function HomeScreen() {
       return next;
     });
   }, []);
+
+  function handleSignedIn(next: Session) {
+    // Merge anonymous progress into the account: best-per-subject wins.
+    const merged = mergeProgress(
+      loadProgress(window.localStorage),
+      loadAccountProgress(window.localStorage),
+    );
+    saveAccountProgress(window.localStorage, merged);
+    saveProgress(window.localStorage, merged);
+    saveSession(window.localStorage, next);
+    setProgress(merged);
+    setSession(next);
+    setStage("choose");
+  }
+
+  function handleSignOut() {
+    void auth.signOut();
+    clearSession(window.localStorage);
+    setSession(null);
+  }
 
   function selectTrack(next: ExamTrack) {
     setTrack(next);
@@ -143,6 +174,17 @@ export function HomeScreen() {
         onSetComplete={recordCompletedSet}
         onAnswered={recordAnsweredQuestion}
         allowanceRemaining={remaining(allowance, subject)}
+        onSignIn={() => setStage("signin")}
+      />
+    );
+  }
+
+  if (stage === "signin") {
+    return (
+      <SignIn
+        auth={auth}
+        onSignedIn={handleSignedIn}
+        onCancel={() => setStage("choose")}
       />
     );
   }
@@ -151,7 +193,11 @@ export function HomeScreen() {
     return (
       <>
         <ExamToggle track={track} onSelect={selectTrack} />
-        <SignInWall subject={subject} onBack={backToSubjects} />
+        <SignInWall
+          subject={subject}
+          onSignIn={() => setStage("signin")}
+          onBack={backToSubjects}
+        />
       </>
     );
   }
@@ -175,6 +221,26 @@ export function HomeScreen() {
       <ExamToggle track={track} onSelect={selectTrack} />
       <SubjectPicker track={track} subjects={subjects} onSelect={chooseSubject} />
       <ProgressSummary progress={progress} />
+      <section className="account" aria-label="Account">
+        {session ? (
+          <p className="account-line">
+            Signed in as <strong>{session.phone}</strong>{" "}
+            <button type="button" className="practice-exit" onClick={handleSignOut}>
+              Sign out
+            </button>
+          </p>
+        ) : (
+          <p className="account-line">
+            <button
+              type="button"
+              className="practice-exit"
+              onClick={() => setStage("signin")}
+            >
+              Sign in to keep your progress
+            </button>
+          </p>
+        )}
+      </section>
     </>
   );
 }

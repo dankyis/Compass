@@ -2,15 +2,22 @@ import { describe, it, expect } from "vitest";
 import { EMPTY_PROGRESS, recordSet } from "./progress";
 import { EMPTY_ALLOWANCE, recordAnswered } from "./allowance";
 import {
+  ACCOUNT_PROGRESS_STORAGE_KEY,
   ALLOWANCE_STORAGE_KEY,
   EXAM_TRACK_STORAGE_KEY,
   PROGRESS_STORAGE_KEY,
+  SESSION_STORAGE_KEY,
+  clearSession,
+  loadAccountProgress,
   loadAllowance,
   loadExamTrack,
   loadProgress,
+  loadSession,
+  saveAccountProgress,
   saveAllowance,
   saveExamTrack,
   saveProgress,
+  saveSession,
 } from "./storage";
 import { DEFAULT_EXAM_TRACK } from "./exam";
 
@@ -99,5 +106,44 @@ describe("free allowance persistence", () => {
       [ALLOWANCE_STORAGE_KEY]: JSON.stringify({ mathematics: 2, astronomy: 9 }),
     });
     expect(loadAllowance(store)).toEqual({ mathematics: 2 });
+  });
+});
+
+describe("session persistence", () => {
+  it("returns null when nobody is signed in", () => {
+    expect(loadSession(fakeStore())).toBeNull();
+  });
+
+  it("round-trips a saved session", () => {
+    const store = fakeStore();
+    saveSession(store, { phone: "+233244123456" });
+    expect(store._dump()[SESSION_STORAGE_KEY]).toBeTruthy();
+    expect(loadSession(store)).toEqual({ phone: "+233244123456" });
+  });
+
+  it("clears on sign-out", () => {
+    const store = fakeStore();
+    saveSession(store, { phone: "+233244123456" });
+    clearSession(store);
+    expect(loadSession(store)).toBeNull();
+  });
+
+  it("survives a corrupted session", () => {
+    const store = fakeStore({ [SESSION_STORAGE_KEY]: "{not json" });
+    expect(loadSession(store)).toBeNull();
+  });
+});
+
+describe("account progress persistence", () => {
+  it("returns empty progress when nothing is stored", () => {
+    expect(loadAccountProgress(fakeStore())).toEqual(EMPTY_PROGRESS);
+  });
+
+  it("round-trips saved account progress", () => {
+    const store = fakeStore();
+    const saved = recordSet(EMPTY_PROGRESS, "english", { correct: 4, total: 10 }, "2026-09-20");
+    saveAccountProgress(store, saved);
+    expect(store._dump()[ACCOUNT_PROGRESS_STORAGE_KEY]).toBeTruthy();
+    expect(loadAccountProgress(store)).toEqual(saved);
   });
 });

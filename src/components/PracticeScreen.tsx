@@ -22,6 +22,8 @@ interface PracticeScreenProps {
   onAnswered?: (subject: SubjectId) => void;
   /** Free Questions left for this subject; the Sign-in Wall shows at zero. */
   allowanceRemaining?: number;
+  /** Opens sign-in from the wall shown mid-set. */
+  onSignIn?: () => void;
 }
 
 // The Practice Loop's core: answer one question at a time, see instantly
@@ -33,6 +35,7 @@ export function PracticeScreen({
   onSetComplete,
   onAnswered,
   allowanceRemaining,
+  onSignIn,
 }: PracticeScreenProps) {
   const [questions, setQuestions] = useState<Question[]>(() =>
     assemblePracticeSet(pool),
@@ -167,7 +170,11 @@ export function PracticeScreen({
         )}
 
         {blocked ? (
-          <SignInWall subject={questions[0].subject} onBack={onExit} />
+          <SignInWall
+            subject={questions[0].subject}
+            onSignIn={onSignIn}
+            onBack={onExit}
+          />
         ) : (
           <div className="result-actions">
             {missed.length > 0 && (
@@ -201,7 +208,11 @@ export function PracticeScreen({
   if (blocked && !answered) {
     return (
       <section className="practice" aria-label="Practice set">
-        <SignInWall subject={question.subject} onBack={onExit} />
+        <SignInWall
+          subject={question.subject}
+          onSignIn={onSignIn}
+          onBack={onExit}
+        />
       </section>
     );
   }
