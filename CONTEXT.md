@@ -87,3 +87,9 @@ _Avoid_: premium, pro
 
 **Term Pass**:
 A paid tier priced per school term rather than monthly.
+
+### Presentation
+
+**Track Theme**:
+The visual mode that follows the Exam Toggle: light for BECE (JHS), dark for WASSCE (SHS). It is derived from the track, not a separate user setting.
+_Avoid_: dark mode, appearance setting, colour scheme
